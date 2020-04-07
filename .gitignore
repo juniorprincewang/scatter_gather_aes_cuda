@@ -1,1 +1,4 @@
 backup/
+*.log
+text_generator/*
+!.gitkeep
