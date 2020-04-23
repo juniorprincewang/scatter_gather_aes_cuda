@@ -293,11 +293,17 @@ void AES::encrypt(const uint *pt, uint *ct) {
 void AES::encrypt_ecb(const uint *pt, uint *ct, uint n) {
     uint *cpt, *cct;
     uint size = n*sizeof(uint);
+    struct timeval start, end;
+    long long usec;
 
     cudaDeviceSynchronize();
     checkCudaErrors(cudaMalloc((void**)&cpt, size));
     checkCudaErrors(cudaMalloc((void**)&cct, size));
+    gettimeofday(&start, NULL);
     checkCudaErrors(cudaMemcpy(cpt, pt, size, cudaMemcpyHostToDevice));
+    gettimeofday(&end, NULL);
+    usec = (end.tv_sec * 1000000 + end.tv_usec) - (start.tv_sec * 1000000 + start.tv_usec);
+    printf("HtoD %lld usec\n", usec);
 
     struct cudaDeviceProp prop;
     cudaGetDeviceProperties(&prop, 0);
@@ -307,28 +313,35 @@ void AES::encrypt_ecb(const uint *pt, uint *ct, uint n) {
 
     //cudaFuncSetCacheConfig(MyKernel, cudaFuncCachePreferShared);
     //cudaFuncSetCacheConfig(AES_encrypt, cudaFuncCachePreferL1);
-    AES_encrypt<<<dimGrid, dimBlock>>>(cpt, cct, ce_sched, Nr, n);
+
+    // warmup
+    // AES_encrypt<<<dimGrid, dimBlock>>>(cpt, cct, ce_sched, Nr, n);
 
     //debug<<<1, 1>>>();
     for (int i = 0; i < 1; i++) {
-    cudaDeviceSynchronize();
-    struct timeval start, end;
-    gettimeofday(&start, NULL);
-    AES_encrypt<<<dimGrid, dimBlock>>>(cpt, cct, ce_sched, Nr, n);
-    cudaDeviceSynchronize();
-    //exit(0);
-    getLastCudaError("AES_encrypt");
-    gettimeofday(&end, NULL);
-    long long usec = (end.tv_sec * 1000000 + end.tv_usec) - (start.tv_sec * 1000000 + start.tv_usec);
-    long long size_in_MB = size / 1024 / 1024;
-#ifdef USE_SMEM
-    const char *gors = "smem";
-#else
-    const char *gors = "gmem";
-#endif
-    printf("%s %s %d %d MB %lld usec %lf Gbps\n", g_mode, gors, TTABLE, size_in_MB, usec, ((double)size_in_MB*8/1024) / ((double)usec/1000000));
+        cudaDeviceSynchronize();
+        gettimeofday(&start, NULL);
+        AES_encrypt<<<dimGrid, dimBlock>>>(cpt, cct, ce_sched, Nr, n);
+        cudaDeviceSynchronize();
+        //exit(0);
+        getLastCudaError("AES_encrypt");
+        gettimeofday(&end, NULL);
+        usec = (end.tv_sec * 1000000 + end.tv_usec) - (start.tv_sec * 1000000 + start.tv_usec);
+        long long size_in_MB = size / 1024 / 1024;
+    #ifdef USE_SMEM
+        const char *gors = "smem";
+    #else
+        const char *gors = "gmem";
+    #endif
+        printf("%s %s %d %d MB %lld usec %lf Gbps\n", 
+                g_mode, gors, TTABLE, size_in_MB, usec, 
+                ((double)size_in_MB*8/1024) / ((double)usec/1000000));
     }
+    gettimeofday(&start, NULL);
     checkCudaErrors(cudaMemcpy(ct, cct, size, cudaMemcpyDeviceToHost));
+    gettimeofday(&end, NULL);
+    usec = (end.tv_sec * 1000000 + end.tv_usec) - (start.tv_sec * 1000000 + start.tv_usec);
+    printf("DtoH %lld usec\n", usec);
 	
     checkCudaErrors(cudaFree(cpt));
     checkCudaErrors(cudaFree(cct));

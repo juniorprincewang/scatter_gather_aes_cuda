@@ -1,12 +1,13 @@
 #ifndef UTIL_CU_
 #define UTIL_CU_
 
+// TITAN V : SM:80
 // GTX 1080: smem 40x1024, gmem 80x512
 // GTX 980: 32x1024
 // K40: 30x1024
 // TRX 2080: smem 92x1024
 #ifndef NUM_BLOCKS
-#define NUM_BLOCKS 30
+#define NUM_BLOCKS 80
 #endif
 
 #define NUM_THREADS 1024
